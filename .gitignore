@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# --- C++ / PlatformIO / Arduino İhmalleri ---
+.pio/
+.vscode/.browse.c_cpp.db*
+build/
+*.bin
+*.elf
+*.hex
+*.o
+.cache/
