@@ -61,11 +61,13 @@ class TelemetryReceiverThread(QThread):
         sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(("0.0.0.0", self.udp_port))
+            import sys
+            if sys.platform != "win32":
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("", self.udp_port))
             sock.settimeout(0.5)  # Periyodik çıkış kontrolü için
 
-            self.status_changed.emit(True, f"UDP Dinleniyor: 0.0.0.0:{self.udp_port}")
+            self.status_changed.emit(True, f"UDP Dinleniyor: Port {self.udp_port}")
 
             while self._is_running:
                 try:

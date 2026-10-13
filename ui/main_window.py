@@ -1,8 +1,11 @@
 """
 ui/main_window.py
 Modern Web / SaaS Dashboard Hissiyatlı AFAD İzleme İstasyonu Ana Penceresi
+Dahili Simülatör ve Hızlı Test Butonları Entegre Edilmiştir.
 """
 
+import random
+import socket
 import time
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
@@ -22,7 +25,7 @@ from PyQt5.QtWidgets import (
 )
 
 from core.receiver import TelemetryReceiverThread
-from core.telemetry_protocol import MessageType, TelemetryPacket
+from core.telemetry_protocol import MessageType, NodeRole, TelemetryPacket
 from models.node_manager import NodeManager
 from ui.styles import THEMES, get_theme_qss
 from ui.widgets import (
@@ -37,12 +40,20 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AFAD | Afet Sonrası Çok Sekmeli LoRa Mesh & Akustik İzleme Paneli")
-        self.resize(1340, 840)
+        self.resize(1340, 860)
 
         # 1. Veri Modeli ve Alıcı İş Parçacığı
         self.node_manager = NodeManager()
         self.receiver = TelemetryReceiverThread(mode="UDP", udp_port=5005)
         self.latest_raw_hex = ""
+
+        # Dahili Simülasyon Değişkenleri
+        self.sim_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sim_running = False
+        self.sim_hop = 1
+        self.sim_battery = 96
+        self.sim_timer = QTimer(self)
+        self.sim_timer.timeout.connect(self._send_auto_heartbeat)
 
         # 2. Arayüzü Kur
         self._init_ui()
@@ -58,12 +69,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(14, 12, 14, 12)
-        main_layout.setSpacing(14)
+        main_layout.setSpacing(10)
 
-        # 1. Modern Web Tarzı Üst Navigasyon Çubuğu (Navbar)
+        # 1. Modern Web Navbar
         main_layout.addWidget(self._create_top_navbar())
 
-        # 2. Ana Gövde (Splitter: Sol Göstergeler / Sağ Tablo & Alarmlar)
+        # 2. Hızlı Test & Senaryo Çubuğu
+        main_layout.addWidget(self._create_scenario_bar())
+
+        # 3. Ana Gövde (Splitter: Sol Göstergeler / Sağ Tablo & Alarmlar)
         splitter = QSplitter(Qt.Horizontal)
         splitter.setHandleWidth(4)
 
@@ -96,7 +110,7 @@ class MainWindow(QMainWindow):
         splitter.setSizes([500, 840])
         main_layout.addWidget(splitter, 1)
 
-        # 3. Durum Çubuğu
+        # 4. Durum Çubuğu
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.lbl_status_mode = QLabel("Bağlantı: Bekleniyor...")
@@ -141,7 +155,7 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()
 
-        # Orta: Bağlantı Hızlı Kontrolleri (Pill Bar)
+        # Orta: Bağlantı Hızlı Kontrolleri
         conn_box = QHBoxLayout()
         conn_box.setSpacing(8)
 
@@ -170,7 +184,6 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(conn_box)
 
-        # Ayırıcı Çizgi
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
         sep.setStyleSheet("color: #334155; margin: 4px 6px;")
@@ -200,6 +213,120 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(right_box)
         return navbar
+
+    def _create_scenario_bar(self) -> QFrame:
+        """Kullanıcının tek tıklamayla sistemi test edebileceği Hızlı Senaryo Çubuğu."""
+        frame = QFrame()
+        frame.setStyleSheet("""
+            QFrame {
+                background-color: #111827;
+                border: 1px solid #1F2937;
+                border-radius: 10px;
+            }
+        """)
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(10)
+
+        lbl = QLabel("⚡ HIZLI TEST:")
+        lbl.setStyleSheet("font-weight: 800; color: #F59E0B; font-size: 12px;")
+        layout.addWidget(lbl)
+
+        self.btn_auto_sim = QPushButton("▶ Canlı Simülasyonu Başlat")
+        self.btn_auto_sim.setStyleSheet("background-color: #059669; color: white; font-weight: 700; padding: 6px 14px; border-radius: 6px;")
+        self.btn_auto_sim.clicked.connect(self._toggle_internal_sim)
+        layout.addWidget(self.btn_auto_sim)
+
+        self.btn_whistle_test = QPushButton("🚨 Düdük Alarmı Bas (2950 Hz)")
+        self.btn_whistle_test.setStyleSheet("background-color: #B91C1C; color: white; font-weight: 700; padding: 6px 14px; border-radius: 6px;")
+        self.btn_whistle_test.clicked.connect(self._send_test_whistle)
+        layout.addWidget(self.btn_whistle_test)
+
+        self.btn_seismic_test = QPushButton("💥 Sismik Çökme Bas (75°)")
+        self.btn_seismic_test.setStyleSheet("background-color: #B45309; color: white; font-weight: 700; padding: 6px 14px; border-radius: 6px;")
+        self.btn_seismic_test.clicked.connect(self._send_test_seismic)
+        layout.addWidget(self.btn_seismic_test)
+
+        self.btn_hop_test = QPushButton("🔄 Sekme Değiştir (1 ↔ 2 Hop)")
+        self.btn_hop_test.setStyleSheet("background-color: #1E293B; color: #38BDF8; font-weight: 700; padding: 6px 14px; border-radius: 6px;")
+        self.btn_hop_test.clicked.connect(self._toggle_test_hop)
+        layout.addWidget(self.btn_hop_test)
+
+        layout.addStretch()
+
+        hint = QLabel("💡 Harici 'mock_telemetry.py' veya gerçek LoRa Gateway verileri de eşzamanlı dinlenir.")
+        hint.setStyleSheet("color: #64748B; font-size: 11px;")
+        layout.addWidget(hint)
+
+        return frame
+
+    def _toggle_internal_sim(self):
+        self.sim_running = not self.sim_running
+        if self.sim_running:
+            self.btn_auto_sim.setText("⏸️ Simülasyonu Durdur")
+            self.btn_auto_sim.setStyleSheet("background-color: #DC2626; color: white; font-weight: 700; padding: 6px 14px; border-radius: 6px;")
+            self._send_auto_heartbeat()
+            self.sim_timer.start(2000)
+        else:
+            self.btn_auto_sim.setText("▶ Canlı Simülasyonu Başlat")
+            self.btn_auto_sim.setStyleSheet("background-color: #059669; color: white; font-weight: 700; padding: 6px 14px; border-radius: 6px;")
+            self.sim_timer.stop()
+
+    def _send_udp_packet(self, pkt: TelemetryPacket):
+        raw = pkt.pack()
+        try:
+            self.sim_socket.sendto(raw, ("127.0.0.1", self.spin_port.value()))
+        except Exception as e:
+            self.status_bar.showMessage(f"Simülasyon gönderim hatası: {e}", 3000)
+
+    def _send_auto_heartbeat(self):
+        pitch = random.randint(-4, 4)
+        roll = random.randint(-3, 3)
+        if random.random() < 0.1 and self.sim_battery > 10:
+            self.sim_battery -= 1
+
+        pkt = TelemetryPacket(
+            node_id=NodeRole.RUBBLE_NODE,
+            msg_type=MessageType.HEARTBEAT,
+            pitch=pitch,
+            roll=roll,
+            peak_freq=0,
+            confidence=0,
+            hop_count=self.sim_hop,
+            battery=self.sim_battery,
+        )
+        self._send_udp_packet(pkt)
+
+    def _send_test_whistle(self):
+        pkt = TelemetryPacket(
+            node_id=NodeRole.RUBBLE_NODE,
+            msg_type=MessageType.ACOUSTIC_ALARM,
+            pitch=random.randint(-6, 6),
+            roll=random.randint(-4, 4),
+            peak_freq=random.randint(2850, 3100),
+            confidence=random.randint(93, 99),
+            hop_count=self.sim_hop,
+            battery=self.sim_battery,
+        )
+        self._send_udp_packet(pkt)
+
+    def _send_test_seismic(self):
+        pkt = TelemetryPacket(
+            node_id=NodeRole.RUBBLE_NODE,
+            msg_type=MessageType.SEISMIC_ALERT,
+            pitch=random.choice([65, 75, -78]),
+            roll=random.choice([48, -52, 64]),
+            peak_freq=0,
+            confidence=100,
+            hop_count=self.sim_hop,
+            battery=self.sim_battery,
+        )
+        self._send_udp_packet(pkt)
+
+    def _toggle_test_hop(self):
+        self.sim_hop = 2 if self.sim_hop == 1 else 1
+        self._send_auto_heartbeat()
+        self.status_bar.showMessage(f"Sekme Durumu Değiştirildi: {self.sim_hop} Hop", 3000)
 
     def on_theme_changed(self, theme_name: str):
         qss = get_theme_qss(theme_name)
@@ -276,5 +403,7 @@ class MainWindow(QMainWindow):
         self.node_manager.clear_node_alarm(2)
 
     def closeEvent(self, event):
+        self.sim_timer.stop()
         self.receiver.stop()
+        self.sim_socket.close()
         event.accept()
