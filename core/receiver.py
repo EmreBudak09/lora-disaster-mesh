@@ -58,14 +58,14 @@ class TelemetryReceiverThread(QThread):
             self.status_changed.emit(False, f"Hata: Geçersiz mod {self.mode}")
 
     def _run_udp_listener(self):
-        sock = None
+        had_error = False
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             import sys
             if sys.platform != "win32":
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("", self.udp_port))
-            sock.settimeout(0.5)  # Periyodik çıkış kontrolü için
+            sock.settimeout(0.5)
 
             self.status_changed.emit(True, f"UDP Dinleniyor: Port {self.udp_port}")
 
@@ -75,9 +75,7 @@ class TelemetryReceiverThread(QThread):
                     if not data:
                         continue
 
-                    # 11 baytlık paketi parse et
                     if len(data) >= PACKET_SIZE:
-                        # Eğer başında 0xAA varsa doğrudan ilk 11 baytı al
                         header_idx = data.find(bytes([HEADER_BYTE]))
                         if header_idx != -1 and len(data) >= header_idx + PACKET_SIZE:
                             raw_pkt = data[header_idx:header_idx + PACKET_SIZE]
@@ -95,12 +93,15 @@ class TelemetryReceiverThread(QThread):
                         time.sleep(0.1)
 
         except Exception as e:
-            self.status_changed.emit(False, f"UDP Soket Hatası: {e}")
-            self.error_occurred.emit(f"UDP Başlatılamadı: {e}")
+            had_error = True
+            err_msg = f"Port {self.udp_port} Meşgul! (Arka plandaki eski pencereyi kapatın)" if "10048" in str(e) else f"UDP Hatası: {e}"
+            self.status_changed.emit(False, err_msg)
+            self.error_occurred.emit(err_msg)
         finally:
             if sock:
                 sock.close()
-            self.status_changed.emit(False, "UDP Alıcısı Durduruldu")
+            if not had_error:
+                self.status_changed.emit(False, "UDP Alıcısı Durduruldu")
 
     def _run_serial_listener(self):
         ser = None
