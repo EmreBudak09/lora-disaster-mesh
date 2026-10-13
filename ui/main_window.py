@@ -1,13 +1,14 @@
 """
 ui/main_window.py
 AFAD İzleme İstasyonu Ana Pencere Mimari Orkestratörü
+Çoklu Renk Temaları Destekli (Koyu / Mavi / Beyaz)
 """
 
 import time
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
+    QApplication,
     QComboBox,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,6 +24,7 @@ from PyQt5.QtWidgets import (
 from core.receiver import TelemetryReceiverThread
 from core.telemetry_protocol import MessageType, TelemetryPacket
 from models.node_manager import NodeManager
+from ui.styles import THEMES, get_theme_qss
 from ui.widgets import (
     AlarmPanelWidget,
     SeismicGaugeWidget,
@@ -35,7 +37,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AFAD | Afet Sonrası Çok Sekmeli LoRa Mesh & Akustik İzleme İstasyonu v1.0")
-        self.resize(1280, 800)
+        self.resize(1300, 820)
 
         # 1. Veri Modeli ve Alıcı İş Parçacığı
         self.node_manager = NodeManager()
@@ -58,7 +60,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(14, 14, 14, 14)
         main_layout.setSpacing(12)
 
-        # Üst Başlık ve Bağlantı Çubuğu
+        # Üst Başlık ve Tema / Bağlantı Çubuğu
         main_layout.addLayout(self._create_header_layout())
         main_layout.addLayout(self._create_connection_bar())
 
@@ -91,7 +93,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.table_widget)
         splitter.addWidget(right_widget)
 
-        splitter.setSizes([480, 800])
+        splitter.setSizes([480, 820])
         main_layout.addWidget(splitter)
 
         # Durum Çubuğu (Status Bar)
@@ -112,15 +114,22 @@ class MainWindow(QMainWindow):
 
         title_layout = QVBoxLayout()
         title = QLabel("T.C. İÇİŞLERİ BAKANLIĞI AFAD & MAKÜ BİLGİSAYAR MÜHENDİSLİĞİ")
-        title.setStyleSheet("color: #38BDF8; font-weight: bold; font-size: 11px; letter-spacing: 1px;")
+        title.setStyleSheet("color: #0284C7; font-weight: bold; font-size: 11px; letter-spacing: 1px;")
         
         subtitle = QLabel("AFET SONRASI ALTYAPISIZ ÇOK SEKME (MULTI-HOP) LORA MESH & AKUSTİK İZLEME PANELİ")
-        subtitle.setStyleSheet("color: #F8FAFC; font-weight: 800; font-size: 16px;")
+        subtitle.setStyleSheet("font-weight: 800; font-size: 16px;")
 
         title_layout.addWidget(title)
         title_layout.addWidget(subtitle)
         layout.addLayout(title_layout)
         layout.addStretch()
+
+        # Tema Seçici Açılır Kutu
+        layout.addWidget(QLabel("🎨 Tema:"))
+        self.combo_theme = QComboBox()
+        self.combo_theme.addItems(list(THEMES.keys()))
+        self.combo_theme.currentTextChanged.connect(self.on_theme_changed)
+        layout.addWidget(self.combo_theme)
 
         badge = QLabel("PROJE TEZİ v1.0 | TÜBİTAK 2209-A")
         badge.setStyleSheet("background-color: #1E293B; color: #94A3B8; padding: 6px 12px; border-radius: 6px; font-weight: bold;")
@@ -132,14 +141,12 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout()
         layout.setSpacing(10)
 
-        # Mod Seçici
         layout.addWidget(QLabel("Bağlantı Kaynağı:"))
         self.combo_mode = QComboBox()
         self.combo_mode.addItems(["UDP Soket (Simülatör)", "Seri Port (USB Gateway)"])
         self.combo_mode.currentIndexChanged.connect(self._on_mode_changed)
         layout.addWidget(self.combo_mode)
 
-        # Port Ayarı
         self.lbl_port = QLabel("UDP Port:")
         layout.addWidget(self.lbl_port)
         self.spin_port = QSpinBox()
@@ -152,7 +159,6 @@ class MainWindow(QMainWindow):
         self.edit_serial.setVisible(False)
         layout.addWidget(self.edit_serial)
 
-        # Bağlan / Kes Butonu
         self.btn_toggle_conn = QPushButton("Durdur")
         self.btn_toggle_conn.setObjectName("btn_disconnect")
         self.btn_toggle_conn.clicked.connect(self._toggle_connection)
@@ -161,6 +167,18 @@ class MainWindow(QMainWindow):
         layout.addStretch()
         return layout
 
+    def on_theme_changed(self, theme_name: str):
+        """Kullanıcı tema seçtiğinde tüm uygulamayı anında güncelle."""
+        qss = get_theme_qss(theme_name)
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(qss)
+
+        is_light = "Beyaz" in theme_name or "Gündüz" in theme_name
+        self.topology_widget.set_theme(is_light)
+        self.seismic_widget.set_theme(is_light)
+        self.table_widget.set_theme(is_light)
+
     def _on_mode_changed(self, idx: int):
         is_udp = (idx == 0)
         self.lbl_port.setText("UDP Port:" if is_udp else "Seri Port:")
@@ -168,13 +186,10 @@ class MainWindow(QMainWindow):
         self.edit_serial.setVisible(not is_udp)
 
     def _connect_signals(self):
-        # Alıcı sinyalleri
         self.receiver.packet_received.connect(self.on_packet_received)
         self.receiver.raw_packet_hex.connect(self.on_raw_hex_received)
         self.receiver.status_changed.connect(self.on_status_changed)
         self.receiver.error_occurred.connect(lambda err: self.status_bar.showMessage(f"Hata: {err}", 4000))
-
-        # Alarm paneli sinyalleri
         self.alarm_panel.alarm_cleared.connect(self.on_alarm_cleared)
 
     def start_receiver(self):
@@ -186,7 +201,7 @@ class MainWindow(QMainWindow):
         self.receiver.start()
         self.btn_toggle_conn.setText("Durdur")
         self.btn_toggle_conn.setObjectName("btn_disconnect")
-        self.btn_toggle_conn.setStyleSheet("")  # QSS'i tazele
+        self.btn_toggle_conn.setStyleSheet("")
 
     def stop_receiver(self):
         self.receiver.stop()
@@ -204,20 +219,16 @@ class MainWindow(QMainWindow):
         self.latest_raw_hex = hex_str
 
     def on_packet_received(self, pkt: TelemetryPacket, source_desc: str):
-        # 1. Modeli güncelle
         updated_node = self.node_manager.update_with_packet(pkt)
 
-        # 2. Sismik İbreyi güncelle (Enkaz düğümü ise)
         if pkt.node_id == 1:
             self.seismic_widget.update_angles(pkt.pitch, pkt.roll)
 
-        # 3. Alarm paneli kontrolü
         if pkt.msg_type == MessageType.ACOUSTIC_ALARM:
             self.alarm_panel.trigger_acoustic_alarm(pkt.peak_freq, pkt.confidence, pkt.node_id)
         elif pkt.msg_type == MessageType.SEISMIC_ALERT:
             self.alarm_panel.trigger_seismic_alert(pkt.pitch, pkt.roll, pkt.node_id)
 
-        # 4. Tabloya ekle
         self.table_widget.add_packet(pkt, self.latest_raw_hex)
 
     def on_status_changed(self, is_connected: bool, message: str):
@@ -232,6 +243,5 @@ class MainWindow(QMainWindow):
         self.node_manager.clear_node_alarm(2)
 
     def closeEvent(self, event):
-        """Uygulama kapatılırken arka plan thread'ini temizce sonlandır."""
         self.receiver.stop()
         event.accept()

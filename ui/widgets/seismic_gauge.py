@@ -1,10 +1,11 @@
 """
 ui/widgets/seismic_gauge.py
 MPU-6050 Sismik Eğim ve Çökme Analiz İbresi (Yapay Ufuk / Çift Eksenli Su Terazisi)
+Çoklu Tema Uyumlu
 """
 
 from PyQt5.QtCore import Qt, QPointF
-from PyQt5.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PyQt5.QtGui import QBrush, QColor, QPainter, QPen
 from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 
@@ -15,7 +16,12 @@ class BubbleLevelCanvas(QWidget):
         super().__init__(parent)
         self.pitch = 0
         self.roll = 0
+        self.is_light_theme = False
         self.setMinimumSize(180, 180)
+
+    def set_theme(self, is_light: bool):
+        self.is_light_theme = is_light
+        self.update()
 
     def set_angles(self, pitch: int, roll: int):
         self.pitch = max(-90, min(90, pitch))
@@ -32,8 +38,11 @@ class BubbleLevelCanvas(QWidget):
         center = QPointF(w / 2, h / 2)
 
         # 1. Arka Plan Çemberi
-        painter.setPen(QPen(QColor("#334155"), 2))
-        painter.setBrush(QBrush(QColor("#0F172A")))
+        bg_color = QColor("#F8FAFC") if self.is_light_theme else QColor("#0F172A")
+        border_color = QColor("#CBD5E1") if self.is_light_theme else QColor("#334155")
+        
+        painter.setPen(QPen(border_color, 2))
+        painter.setBrush(QBrush(bg_color))
         painter.drawEllipse(center, radius, radius)
 
         # 2. Güvenli Eşik Çemberleri (25° ve 45°)
@@ -46,26 +55,25 @@ class BubbleLevelCanvas(QWidget):
         painter.drawEllipse(center, r_warn, r_warn)
 
         # 3. Kesişen Artı Göstergesi (Crosshair)
-        painter.setPen(QPen(QColor("#475569"), 1))
+        cross_color = QColor("#94A3B8") if self.is_light_theme else QColor("#475569")
+        painter.setPen(QPen(cross_color, 1))
         painter.drawLine(int(center.x() - radius), int(center.y()), int(center.x() + radius), int(center.y()))
         painter.drawLine(int(center.x()), int(center.y() - radius), int(center.x()), int(center.y() + radius))
 
         # 4. Eğim Kabarcığı (Bubble Indicator)
-        # Roll = X ekseni hareketi, Pitch = Y ekseni hareketi
         offset_x = (self.roll / 90.0) * radius
-        offset_y = -(self.pitch / 90.0) * radius  # Pitch yukarı pozitif
+        offset_y = -(self.pitch / 90.0) * radius
 
         bubble_center = QPointF(center.x() + offset_x, center.y() + offset_y)
         bubble_radius = 12
 
-        # Tehlike durumuna göre renk seçimi
         total_tilt = (self.pitch**2 + self.roll**2)**0.5
         if total_tilt > 45:
-            bubble_color = QColor("#EF4444") # Kırmızı (Çökme)
+            bubble_color = QColor("#EF4444")
         elif total_tilt > 25:
-            bubble_color = QColor("#F59E0B") # Sarı (Eğimli)
+            bubble_color = QColor("#F59E0B")
         else:
-            bubble_color = QColor("#38BDF8") # Mavi (Stabil)
+            bubble_color = QColor("#0284C7") if self.is_light_theme else QColor("#38BDF8")
 
         painter.setPen(QPen(Qt.white, 2))
         painter.setBrush(QBrush(bubble_color))
@@ -80,27 +88,27 @@ class SeismicGaugeWidget(QGroupBox):
 
         layout = QVBoxLayout(self)
 
-        # Çizim Tuvali
         self.canvas = BubbleLevelCanvas()
         layout.addWidget(self.canvas, alignment=Qt.AlignCenter)
 
-        # Sayısal Değerler
         values_layout = QHBoxLayout()
         self.lbl_pitch = QLabel("Pitch (X): 0°")
-        self.lbl_pitch.setStyleSheet("font-weight: bold; color: #38BDF8; font-size: 13px;")
+        self.lbl_pitch.setStyleSheet("font-weight: bold; color: #0284C7; font-size: 13px;")
         
         self.lbl_roll = QLabel("Roll (Y): 0°")
-        self.lbl_roll.setStyleSheet("font-weight: bold; color: #38BDF8; font-size: 13px;")
+        self.lbl_roll.setStyleSheet("font-weight: bold; color: #0284C7; font-size: 13px;")
         
         values_layout.addWidget(self.lbl_pitch)
         values_layout.addWidget(self.lbl_roll)
         layout.addLayout(values_layout)
 
-        # Durum Metni
         self.lbl_status = QLabel("DURUM: STABİL / NORMAL")
         self.lbl_status.setAlignment(Qt.AlignCenter)
         self.lbl_status.setStyleSheet("color: #10B981; font-weight: bold; font-size: 12px; padding: 4px;")
         layout.addWidget(self.lbl_status)
+
+    def set_theme(self, is_light: bool):
+        self.canvas.set_theme(is_light)
 
     def update_angles(self, pitch: int, roll: int):
         self.canvas.set_angles(pitch, roll)

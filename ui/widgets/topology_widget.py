@@ -1,10 +1,11 @@
 """
 ui/widgets/topology_widget.py
 3 Düğümlü Mesh Ağ Topolojisi ve Sekme (Multi-Hop) Görselleştiricisi
+Çoklu Tema Uyumlu
 """
 
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PyQt5.QtGui import QColor, QFont, QPainter, QPen
 from PyQt5.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from models.node_manager import NodeManager, NodeState
 
@@ -17,17 +18,9 @@ class NodeCardWidget(QWidget):
         self.node_id = node_id
         self.title = title
         self.subtitle = subtitle
+        self.is_light_theme = False
 
-        self.setStyleSheet("""
-            QWidget#NodeCard {
-                background-color: #0F172A;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 10px;
-            }
-        """)
         self.setObjectName("NodeCard")
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(6)
@@ -38,7 +31,7 @@ class NodeCardWidget(QWidget):
         self.lbl_status_dot.setStyleSheet("color: #64748B; font-size: 16px;")
         
         self.lbl_title = QLabel(self.title)
-        self.lbl_title.setStyleSheet("font-weight: bold; font-size: 13px; color: #F8FAFC;")
+        self.lbl_title.setStyleSheet("font-weight: bold; font-size: 13px;")
         
         header_layout.addWidget(self.lbl_status_dot)
         header_layout.addWidget(self.lbl_title)
@@ -52,44 +45,57 @@ class NodeCardWidget(QWidget):
 
         # Pil ve Son Görülme
         self.lbl_battery = QLabel("Pil: -- %")
-        self.lbl_battery.setStyleSheet("color: #38BDF8; font-size: 12px; font-weight: 600;")
+        self.lbl_battery.setStyleSheet("color: #0284C7; font-size: 12px; font-weight: 600;")
         layout.addWidget(self.lbl_battery)
 
         self.lbl_last_seen = QLabel("Sinyal: Bekleniyor")
         self.lbl_last_seen.setStyleSheet("color: #64748B; font-size: 11px;")
         layout.addWidget(self.lbl_last_seen)
 
+        self._apply_base_style()
+
+    def set_theme(self, is_light: bool):
+        self.is_light_theme = is_light
+        self._apply_base_style()
+
+    def _apply_base_style(self):
+        bg = "#F8FAFC" if self.is_light_theme else "#0F172A"
+        border = "#CBD5E1" if self.is_light_theme else "#334155"
+        self.setStyleSheet(f"""
+            QWidget#NodeCard {{
+                background-color: {bg};
+                border: 1px solid {border};
+                border-radius: 8px;
+            }}
+        """)
+
     def update_state(self, state: NodeState):
+        bg = "#F8FAFC" if self.is_light_theme else "#0F172A"
         if state.is_online:
             if state.is_alarm_active:
-                self.lbl_status_dot.setStyleSheet("color: #EF4444; font-size: 16px;") # Kırmızı flaş
-                self.setStyleSheet("""
-                    QWidget#NodeCard {
-                        background-color: #3B0764;
+                self.lbl_status_dot.setStyleSheet("color: #EF4444; font-size: 16px;")
+                alarm_bg = "#FEE2E2" if self.is_light_theme else "#3B0764"
+                self.setStyleSheet(f"""
+                    QWidget#NodeCard {{
+                        background-color: {alarm_bg};
                         border: 2px solid #EF4444;
                         border-radius: 8px;
-                    }
+                    }}
                 """)
             else:
-                self.lbl_status_dot.setStyleSheet("color: #10B981; font-size: 16px;") # Yeşil
-                self.setStyleSheet("""
-                    QWidget#NodeCard {
-                        background-color: #0F172A;
+                self.lbl_status_dot.setStyleSheet("color: #10B981; font-size: 16px;")
+                self.setStyleSheet(f"""
+                    QWidget#NodeCard {{
+                        background-color: {bg};
                         border: 1px solid #10B981;
                         border-radius: 8px;
-                    }
+                    }}
                 """)
             self.lbl_battery.setText(f"Pil: %{state.battery}")
             self.lbl_last_seen.setText(f"Son Sinyal: {int(state.time_since_last_seen)} sn önce")
         else:
-            self.lbl_status_dot.setStyleSheet("color: #64748B; font-size: 16px;") # Gri
-            self.setStyleSheet("""
-                QWidget#NodeCard {
-                    background-color: #0F172A;
-                    border: 1px solid #334155;
-                    border-radius: 8px;
-                }
-            """)
+            self.lbl_status_dot.setStyleSheet("color: #64748B; font-size: 16px;")
+            self._apply_base_style()
             self.lbl_last_seen.setText("Çevrimdışı")
 
 
@@ -99,12 +105,17 @@ class RouteDiagramWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_hop = 1
-        self.setMinimumHeight(60)
+        self.is_light_theme = False
+        self.setMinimumHeight(55)
 
     def set_hop(self, hop: int):
         if self.current_hop != hop:
             self.current_hop = hop
             self.update()
+
+    def set_theme(self, is_light: bool):
+        self.is_light_theme = is_light
+        self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -114,21 +125,20 @@ class RouteDiagramWidget(QWidget):
         h = self.height()
         mid_y = h // 2
 
-        # Rota Açıklaması
         painter.setFont(QFont("Segoe UI", 11, QFont.Bold))
 
         if self.current_hop == 1:
-            # 1 Sekme: Doğrudan Hat
-            painter.setPen(QPen(QColor("#10B981"), 3, Qt.DashLine))
+            line_color = QColor("#059669") if self.is_light_theme else QColor("#10B981")
+            painter.setPen(QPen(line_color, 3, Qt.DashLine))
             painter.drawLine(50, mid_y, w - 50, mid_y)
-            painter.setPen(QColor("#10B981"))
+            painter.setPen(line_color)
             painter.drawText(0, 0, w, h, Qt.AlignCenter, "⚡ 1 SEKME (DOĞRUDAN LORA HATTI)")
         else:
-            # 2 Sekme: Röle Üzerinden Hat
-            painter.setPen(QPen(QColor("#38BDF8"), 3, Qt.SolidLine))
+            line_color = QColor("#0284C7") if self.is_light_theme else QColor("#38BDF8")
+            painter.setPen(QPen(line_color, 3, Qt.SolidLine))
             painter.drawLine(50, mid_y, w // 2, mid_y - 12)
             painter.drawLine(w // 2, mid_y - 12, w - 50, mid_y)
-            painter.setPen(QColor("#38BDF8"))
+            painter.setPen(line_color)
             painter.drawText(0, 0, w, h, Qt.AlignCenter, "🔄 2 SEKME (RÖLE AKTARIMLI MESH)")
 
 
@@ -141,7 +151,6 @@ class TopologyWidget(QGroupBox):
 
         layout = QVBoxLayout(self)
 
-        # Düğüm Kartları (Yan Yana)
         cards_layout = QHBoxLayout()
         self.card_rubble = NodeCardWidget(1, "Enkaz Düğümü #1", "Uç Sensör / Akustik")
         self.card_relay = NodeCardWidget(2, "Röle Düğümü #2", "Aktarıcı / Mesh")
@@ -152,14 +161,18 @@ class TopologyWidget(QGroupBox):
         cards_layout.addWidget(self.card_gateway)
         layout.addLayout(cards_layout)
 
-        # Rota Çizim Göstergesi
         self.route_diagram = RouteDiagramWidget()
         layout.addWidget(self.route_diagram)
 
-        # Periyodik Yenileme Zamanlayıcısı
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_ui)
         self.timer.start(1000)
+
+    def set_theme(self, is_light: bool):
+        self.card_rubble.set_theme(is_light)
+        self.card_relay.set_theme(is_light)
+        self.card_gateway.set_theme(is_light)
+        self.route_diagram.set_theme(is_light)
 
     def refresh_ui(self):
         node1 = self.node_manager.get_node(1)

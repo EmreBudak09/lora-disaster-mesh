@@ -1,6 +1,7 @@
 """
 ui/widgets/telemetry_table.py
 Canlı Akan Telemetri Paket Log Tablosu ve CSV Dışa Aktarma
+Çoklu Tema Uyumlu
 """
 
 import time
@@ -23,13 +24,13 @@ from core.telemetry_protocol import MessageType, TelemetryPacket
 class TelemetryTableWidget(QGroupBox):
     def __init__(self, parent=None):
         super().__init__("📜 CANLI TELEMETRİ VE PAKET AKIŞ LOGU", parent)
+        self.is_light_theme = False
 
         layout = QVBoxLayout(self)
 
-        # Üst Çubuk: Sayaç ve Temizleme
         top_layout = QHBoxLayout()
         self.lbl_count = QLabel("Toplam Alınan Paket: 0")
-        self.lbl_count.setStyleSheet("color: #38BDF8; font-weight: bold;")
+        self.lbl_count.setStyleSheet("color: #0284C7; font-weight: bold;")
         top_layout.addWidget(self.lbl_count)
         top_layout.addStretch()
 
@@ -42,7 +43,6 @@ class TelemetryTableWidget(QGroupBox):
         top_layout.addWidget(self.btn_clear)
         layout.addLayout(top_layout)
 
-        # Tablo Bileşeni
         self.table = QTableWidget(0, 9)
         self.table.setHorizontalHeaderLabels([
             "Zaman", "Düğüm", "Mesaj Türü", "Eğim (X/Y)", 
@@ -56,6 +56,9 @@ class TelemetryTableWidget(QGroupBox):
 
         layout.addWidget(self.table)
         self.total_packets = 0
+
+    def set_theme(self, is_light: bool):
+        self.is_light_theme = is_light
 
     def add_packet(self, pkt: TelemetryPacket, raw_hex: str = ""):
         self.total_packets += 1
@@ -81,23 +84,21 @@ class TelemetryTableWidget(QGroupBox):
             QTableWidgetItem(raw_hex),
         ]
 
-        # Renklendirme
         if pkt.msg_type == MessageType.ACOUSTIC_ALARM:
-            bg_color = QColor("#450A0A")  # Kırmızı
-            fg_color = QColor("#FCA5A5")
+            bg_color = QColor("#FEE2E2") if self.is_light_theme else QColor("#450A0A")
+            fg_color = QColor("#B91C1C") if self.is_light_theme else QColor("#FCA5A5")
         elif pkt.msg_type == MessageType.SEISMIC_ALERT:
-            bg_color = QColor("#451A03")  # Turuncu/Sarı
-            fg_color = QColor("#FDE047")
+            bg_color = QColor("#FEF3C7") if self.is_light_theme else QColor("#451A03")
+            fg_color = QColor("#B45309") if self.is_light_theme else QColor("#FDE047")
         else:
-            bg_color = QColor("#0F172A")  # Koyu Mavi
-            fg_color = QColor("#E2E8F0")
+            bg_color = QColor("#FFFFFF") if self.is_light_theme else QColor("#0F172A")
+            fg_color = QColor("#0F172A") if self.is_light_theme else QColor("#E2E8F0")
 
         for col, item in enumerate(items):
             item.setBackground(bg_color)
             item.setForeground(fg_color)
             self.table.setItem(row, col, item)
 
-        # Tabloyu en fazla 200 satırla sınırla (Hafıza şişmesini önle)
         if self.table.rowCount() > 200:
             self.table.removeRow(self.table.rowCount() - 1)
 
