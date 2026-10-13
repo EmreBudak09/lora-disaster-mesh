@@ -1,13 +1,15 @@
 """
 ui/main_window.py
 Modern Web / SaaS Dashboard Hissiyatlı AFAD İzleme İstasyonu Ana Penceresi
-Dahili Simülatör ve Hızlı Test Butonları Entegre Edilmiştir.
+Burdur Mehmet Akif Ersoy Üniversitesi (MAKÜ) Logosu Tam Ortada Entegre Edilmiştir.
 """
 
+import os
 import random
 import socket
 import time
 from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
@@ -40,7 +42,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AFAD | Afet Sonrası Çok Sekmeli LoRa Mesh & Akustik İzleme Paneli")
-        self.resize(1340, 860)
+        self.resize(1360, 880)
 
         # 1. Veri Modeli ve Alıcı İş Parçacığı
         self.node_manager = NodeManager()
@@ -68,10 +70,10 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(14, 12, 14, 12)
+        main_layout.setContentsMargins(14, 10, 14, 12)
         main_layout.setSpacing(10)
 
-        # 1. Modern Web Navbar
+        # 1. Modern Web Navbar (MAKÜ Logosu Tam Ortada)
         main_layout.addWidget(self._create_top_navbar())
 
         # 2. Hızlı Test & Senaryo Çubuğu
@@ -107,7 +109,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.table_widget)
         splitter.addWidget(right_widget)
 
-        splitter.setSizes([500, 840])
+        splitter.setSizes([520, 840])
         main_layout.addWidget(splitter, 1)
 
         # 4. Durum Çubuğu
@@ -123,18 +125,19 @@ class MainWindow(QMainWindow):
         self.clock_timer.start(1000)
 
     def _create_top_navbar(self) -> QFrame:
-        """Modern Web Dashboard Header / Navbar."""
+        """Modern Web Dashboard Header / Navbar (MAKÜ Logosu Tam Ortada)."""
         navbar = QFrame()
         navbar.setObjectName("TopNavBar")
-        navbar.setFixedHeight(74)
+        navbar.setFixedHeight(86)
 
         layout = QHBoxLayout(navbar)
-        layout.setContentsMargins(18, 10, 18, 10)
+        layout.setContentsMargins(18, 6, 18, 6)
         layout.setSpacing(14)
 
-        # Sol: AFAD Rozeti ve Başlık
+        # 1. SOL KISIM: AFAD Rozeti ve Başlık (Stretch = 1)
         brand_layout = QHBoxLayout()
         brand_layout.setSpacing(12)
+        brand_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
         icon_lbl = QLabel("🚨")
         icon_lbl.setStyleSheet("font-size: 26px;")
@@ -145,59 +148,81 @@ class MainWindow(QMainWindow):
         title_lbl = QLabel("AFAD MESH OPERASYON MERKEZİ")
         title_lbl.setStyleSheet("font-size: 16px; font-weight: 800; letter-spacing: 0.5px;")
         
-        sub_lbl = QLabel("Çok Sekmeli LoRa Mesh & Uçta Akustik Enkaz Tespit Sistemi | MAKÜ Bilgisayar Müh.")
+        sub_lbl = QLabel("Çok Sekmeli LoRa Mesh & Uçta Akustik Enkaz Tespit Sistemi")
         sub_lbl.setStyleSheet("font-size: 11px; color: #94A3B8; font-weight: 500;")
         
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(sub_lbl)
         brand_layout.addLayout(title_vbox)
-        layout.addLayout(brand_layout)
+        layout.addLayout(brand_layout, 1)
 
-        layout.addStretch()
+        # 2. ORTA KISIM: MAKÜ LOGOSU (TAM GEOMETRİK ORTA, SIFIR BOZULMA)
+        center_layout = QHBoxLayout()
+        center_layout.setAlignment(Qt.AlignCenter)
 
-        # Orta: Bağlantı Hızlı Kontrolleri
-        conn_box = QHBoxLayout()
-        conn_box.setSpacing(8)
+        self.logo_lbl = QLabel()
+        self.logo_lbl.setAlignment(Qt.AlignCenter)
+        self.logo_lbl.setToolTip("Burdur Mehmet Akif Ersoy Üniversitesi (MAKÜ) | Lisans Tezi")
 
-        conn_box.addWidget(QLabel("Giriş:"))
+        # Logoyu assets dizininden yükle (Önce yuvarlatılmış saydam png, yoksa orijinal jpeg)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        logo_path = os.path.join(project_root, "assets", "maku_logo_circle.png")
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(project_root, "assets", "maku_logo.jpeg")
+
+        if os.path.exists(logo_path):
+            pix = QPixmap(logo_path)
+            if not pix.isNull():
+                # En-boy oranını bozmadan, pürüzsüz (SmoothTransformation) ölçekleme
+                scaled_pix = pix.scaled(72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.logo_lbl.setPixmap(scaled_pix)
+                self.logo_lbl.setFixedSize(74, 74)
+                self.logo_lbl.setStyleSheet("background: transparent;")
+        else:
+            self.logo_lbl.setText("🏛️ MAKÜ")
+            self.logo_lbl.setStyleSheet("font-size: 20px; font-weight: bold;")
+
+        center_layout.addWidget(self.logo_lbl)
+        layout.addLayout(center_layout, 0)
+
+        # 3. SAĞ KISIM: Bağlantı Hızlı Kontrolleri, Tema ve TÜBİTAK Rozeti (Stretch = 1)
+        right_container = QHBoxLayout()
+        right_container.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        right_container.setSpacing(10)
+
+        right_container.addWidget(QLabel("Giriş:"))
         self.combo_mode = QComboBox()
         self.combo_mode.addItems(["UDP Soket (Simülatör)", "Seri Port (USB Gateway)"])
         self.combo_mode.currentIndexChanged.connect(self._on_mode_changed)
-        conn_box.addWidget(self.combo_mode)
+        right_container.addWidget(self.combo_mode)
 
         self.lbl_port = QLabel("Port:")
-        conn_box.addWidget(self.lbl_port)
+        right_container.addWidget(self.lbl_port)
         self.spin_port = QSpinBox()
         self.spin_port.setRange(1024, 65535)
         self.spin_port.setValue(5005)
-        conn_box.addWidget(self.spin_port)
+        right_container.addWidget(self.spin_port)
 
         self.edit_serial = QLineEdit("COM3")
         self.edit_serial.setMaximumWidth(80)
         self.edit_serial.setVisible(False)
-        conn_box.addWidget(self.edit_serial)
+        right_container.addWidget(self.edit_serial)
 
         self.btn_toggle_conn = QPushButton("Durdur")
         self.btn_toggle_conn.setObjectName("btn_disconnect")
         self.btn_toggle_conn.clicked.connect(self._toggle_connection)
-        conn_box.addWidget(self.btn_toggle_conn)
-
-        layout.addLayout(conn_box)
+        right_container.addWidget(self.btn_toggle_conn)
 
         sep = QFrame()
         sep.setFrameShape(QFrame.VLine)
-        sep.setStyleSheet("color: #334155; margin: 4px 6px;")
-        layout.addWidget(sep)
+        sep.setStyleSheet("color: #334155; margin: 4px 4px;")
+        right_container.addWidget(sep)
 
-        # Sağ: Tema ve Rozet
-        right_box = QHBoxLayout()
-        right_box.setSpacing(10)
-
-        right_box.addWidget(QLabel("🎨"))
+        right_container.addWidget(QLabel("🎨"))
         self.combo_theme = QComboBox()
         self.combo_theme.addItems(list(THEMES.keys()))
         self.combo_theme.currentTextChanged.connect(self.on_theme_changed)
-        right_box.addWidget(self.combo_theme)
+        right_container.addWidget(self.combo_theme)
 
         badge = QLabel("TÜBİTAK 2209-A")
         badge.setStyleSheet("""
@@ -209,9 +234,9 @@ class MainWindow(QMainWindow):
             font-size: 11px;
             font-weight: 700;
         """)
-        right_box.addWidget(badge)
+        right_container.addWidget(badge)
 
-        layout.addLayout(right_box)
+        layout.addLayout(right_container, 1)
         return navbar
 
     def _create_scenario_bar(self) -> QFrame:
