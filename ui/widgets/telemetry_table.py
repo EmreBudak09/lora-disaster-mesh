@@ -1,7 +1,6 @@
 """
 ui/widgets/telemetry_table.py
-Canlı Akan Telemetri Paket Log Tablosu ve CSV Dışa Aktarma
-Çoklu Tema Uyumlu
+Modern Web Dashboard Veri Tablosu Hissiyatlı Canlı Telemetri Logu
 """
 
 import time
@@ -27,18 +26,19 @@ class TelemetryTableWidget(QGroupBox):
         self.is_light_theme = False
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
 
         top_layout = QHBoxLayout()
         self.lbl_count = QLabel("Toplam Alınan Paket: 0")
-        self.lbl_count.setStyleSheet("color: #0284C7; font-weight: bold;")
+        self.lbl_count.setStyleSheet("color: #0284C7; font-weight: 700; font-size: 13px;")
         top_layout.addWidget(self.lbl_count)
         top_layout.addStretch()
 
-        self.btn_export = QPushButton("CSV Olarak Kaydet")
+        self.btn_export = QPushButton("📥 CSV Olarak Kaydet")
         self.btn_export.clicked.connect(self.export_to_csv)
         top_layout.addWidget(self.btn_export)
 
-        self.btn_clear = QPushButton("Temizle")
+        self.btn_clear = QPushButton("🗑️ Temizle")
         self.btn_clear.clicked.connect(self.clear_table)
         top_layout.addWidget(self.btn_clear)
         layout.addLayout(top_layout)
@@ -51,6 +51,7 @@ class TelemetryTableWidget(QGroupBox):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(34) # Modern ferah satır yüksekliği
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
 
@@ -91,8 +92,8 @@ class TelemetryTableWidget(QGroupBox):
             bg_color = QColor("#FEF3C7") if self.is_light_theme else QColor("#451A03")
             fg_color = QColor("#B45309") if self.is_light_theme else QColor("#FDE047")
         else:
-            bg_color = QColor("#FFFFFF") if self.is_light_theme else QColor("#0F172A")
-            fg_color = QColor("#0F172A") if self.is_light_theme else QColor("#E2E8F0")
+            bg_color = QColor("#FFFFFF") if self.is_light_theme else QColor("#0B1120")
+            fg_color = QColor("#0F172A") if self.is_light_theme else QColor("#F1F5F9")
 
         for col, item in enumerate(items):
             item.setBackground(bg_color)

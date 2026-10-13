@@ -1,7 +1,6 @@
 """
 ui/main_window.py
-AFAD İzleme İstasyonu Ana Pencere Mimari Orkestratörü
-Çoklu Renk Temaları Destekli (Koyu / Mavi / Beyaz)
+Modern Web / SaaS Dashboard Hissiyatlı AFAD İzleme İstasyonu Ana Penceresi
 """
 
 import time
@@ -9,6 +8,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -36,42 +36,42 @@ from ui.widgets import (
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AFAD | Afet Sonrası Çok Sekmeli LoRa Mesh & Akustik İzleme İstasyonu v1.0")
-        self.resize(1300, 820)
+        self.setWindowTitle("AFAD | Afet Sonrası Çok Sekmeli LoRa Mesh & Akustik İzleme Paneli")
+        self.resize(1340, 840)
 
         # 1. Veri Modeli ve Alıcı İş Parçacığı
         self.node_manager = NodeManager()
         self.receiver = TelemetryReceiverThread(mode="UDP", udp_port=5005)
         self.latest_raw_hex = ""
 
-        # 2. Arayüz Bileşenlerini Kur
+        # 2. Arayüzü Kur
         self._init_ui()
 
-        # 3. Sinyal / Yuva (Signal/Slot) Bağlantıları
+        # 3. Sinyalleri Bağla
         self._connect_signals()
 
-        # 4. Varsayılan Olarak UDP Alıcısını Başlat
+        # 4. Alıcıyı Başlat
         self.start_receiver()
 
     def _init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(14, 14, 14, 14)
-        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(14, 12, 14, 12)
+        main_layout.setSpacing(14)
 
-        # Üst Başlık ve Tema / Bağlantı Çubuğu
-        main_layout.addLayout(self._create_header_layout())
-        main_layout.addLayout(self._create_connection_bar())
+        # 1. Modern Web Tarzı Üst Navigasyon Çubuğu (Navbar)
+        main_layout.addWidget(self._create_top_navbar())
 
-        # Ana Gövde (Splitter: Sol Göstergeler / Sağ Tablo ve Alarmlar)
+        # 2. Ana Gövde (Splitter: Sol Göstergeler / Sağ Tablo & Alarmlar)
         splitter = QSplitter(Qt.Horizontal)
+        splitter.setHandleWidth(4)
 
-        # Sol Panel (Topoloji ve Sismik İbre)
+        # Sol Panel (Topoloji & Sismik İbre)
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(12)
+        left_layout.setSpacing(14)
 
         self.topology_widget = TopologyWidget(self.node_manager)
         self.seismic_widget = SeismicGaugeWidget()
@@ -80,11 +80,11 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(self.seismic_widget)
         splitter.addWidget(left_widget)
 
-        # Sağ Panel (Acil Durum Paneli ve Canlı Telemetri Tablosu)
+        # Sağ Panel (Acil Durum Paneli & Canlı Telemetri Tablosu)
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(12)
+        right_layout.setSpacing(14)
 
         self.alarm_panel = AlarmPanelWidget()
         self.table_widget = TelemetryTableWidget()
@@ -93,82 +93,115 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.table_widget)
         splitter.addWidget(right_widget)
 
-        splitter.setSizes([480, 820])
-        main_layout.addWidget(splitter)
+        splitter.setSizes([500, 840])
+        main_layout.addWidget(splitter, 1)
 
-        # Durum Çubuğu (Status Bar)
+        # 3. Durum Çubuğu
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.lbl_status_mode = QLabel("Durum: Başlatılıyor...")
+        self.lbl_status_mode = QLabel("Bağlantı: Bekleniyor...")
         self.lbl_clock = QLabel(time.strftime("%d.%m.%Y %H:%M:%S"))
         self.status_bar.addWidget(self.lbl_status_mode, 1)
         self.status_bar.addPermanentWidget(self.lbl_clock)
 
-        # Saat Güncelleme Zamanlayıcısı
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(lambda: self.lbl_clock.setText(time.strftime("%d.%m.%Y %H:%M:%S")))
         self.clock_timer.start(1000)
 
-    def _create_header_layout(self) -> QHBoxLayout:
-        layout = QHBoxLayout()
+    def _create_top_navbar(self) -> QFrame:
+        """Modern Web Dashboard Header / Navbar."""
+        navbar = QFrame()
+        navbar.setObjectName("TopNavBar")
+        navbar.setFixedHeight(74)
 
-        title_layout = QVBoxLayout()
-        title = QLabel("T.C. İÇİŞLERİ BAKANLIĞI AFAD & MAKÜ BİLGİSAYAR MÜHENDİSLİĞİ")
-        title.setStyleSheet("color: #0284C7; font-weight: bold; font-size: 11px; letter-spacing: 1px;")
+        layout = QHBoxLayout(navbar)
+        layout.setContentsMargins(18, 10, 18, 10)
+        layout.setSpacing(14)
+
+        # Sol: AFAD Rozeti ve Başlık
+        brand_layout = QHBoxLayout()
+        brand_layout.setSpacing(12)
+
+        icon_lbl = QLabel("🚨")
+        icon_lbl.setStyleSheet("font-size: 26px;")
+        brand_layout.addWidget(icon_lbl)
+
+        title_vbox = QVBoxLayout()
+        title_vbox.setSpacing(2)
+        title_lbl = QLabel("AFAD MESH OPERASYON MERKEZİ")
+        title_lbl.setStyleSheet("font-size: 16px; font-weight: 800; letter-spacing: 0.5px;")
         
-        subtitle = QLabel("AFET SONRASI ALTYAPISIZ ÇOK SEKME (MULTI-HOP) LORA MESH & AKUSTİK İZLEME PANELİ")
-        subtitle.setStyleSheet("font-weight: 800; font-size: 16px;")
+        sub_lbl = QLabel("Çok Sekmeli LoRa Mesh & Uçta Akustik Enkaz Tespit Sistemi | MAKÜ Bilgisayar Müh.")
+        sub_lbl.setStyleSheet("font-size: 11px; color: #94A3B8; font-weight: 500;")
+        
+        title_vbox.addWidget(title_lbl)
+        title_vbox.addWidget(sub_lbl)
+        brand_layout.addLayout(title_vbox)
+        layout.addLayout(brand_layout)
 
-        title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-        layout.addLayout(title_layout)
         layout.addStretch()
 
-        # Tema Seçici Açılır Kutu
-        layout.addWidget(QLabel("🎨 Tema:"))
-        self.combo_theme = QComboBox()
-        self.combo_theme.addItems(list(THEMES.keys()))
-        self.combo_theme.currentTextChanged.connect(self.on_theme_changed)
-        layout.addWidget(self.combo_theme)
+        # Orta: Bağlantı Hızlı Kontrolleri (Pill Bar)
+        conn_box = QHBoxLayout()
+        conn_box.setSpacing(8)
 
-        badge = QLabel("PROJE TEZİ v1.0 | TÜBİTAK 2209-A")
-        badge.setStyleSheet("background-color: #1E293B; color: #94A3B8; padding: 6px 12px; border-radius: 6px; font-weight: bold;")
-        layout.addWidget(badge)
-
-        return layout
-
-    def _create_connection_bar(self) -> QHBoxLayout:
-        layout = QHBoxLayout()
-        layout.setSpacing(10)
-
-        layout.addWidget(QLabel("Bağlantı Kaynağı:"))
+        conn_box.addWidget(QLabel("Giriş:"))
         self.combo_mode = QComboBox()
         self.combo_mode.addItems(["UDP Soket (Simülatör)", "Seri Port (USB Gateway)"])
         self.combo_mode.currentIndexChanged.connect(self._on_mode_changed)
-        layout.addWidget(self.combo_mode)
+        conn_box.addWidget(self.combo_mode)
 
-        self.lbl_port = QLabel("UDP Port:")
-        layout.addWidget(self.lbl_port)
+        self.lbl_port = QLabel("Port:")
+        conn_box.addWidget(self.lbl_port)
         self.spin_port = QSpinBox()
         self.spin_port.setRange(1024, 65535)
         self.spin_port.setValue(5005)
-        layout.addWidget(self.spin_port)
+        conn_box.addWidget(self.spin_port)
 
         self.edit_serial = QLineEdit("COM3")
         self.edit_serial.setMaximumWidth(80)
         self.edit_serial.setVisible(False)
-        layout.addWidget(self.edit_serial)
+        conn_box.addWidget(self.edit_serial)
 
         self.btn_toggle_conn = QPushButton("Durdur")
         self.btn_toggle_conn.setObjectName("btn_disconnect")
         self.btn_toggle_conn.clicked.connect(self._toggle_connection)
-        layout.addWidget(self.btn_toggle_conn)
+        conn_box.addWidget(self.btn_toggle_conn)
 
-        layout.addStretch()
-        return layout
+        layout.addLayout(conn_box)
+
+        # Ayırıcı Çizgi
+        sep = QFrame()
+        sep.setFrameShape(QFrame.VLine)
+        sep.setStyleSheet("color: #334155; margin: 4px 6px;")
+        layout.addWidget(sep)
+
+        # Sağ: Tema ve Rozet
+        right_box = QHBoxLayout()
+        right_box.setSpacing(10)
+
+        right_box.addWidget(QLabel("🎨"))
+        self.combo_theme = QComboBox()
+        self.combo_theme.addItems(list(THEMES.keys()))
+        self.combo_theme.currentTextChanged.connect(self.on_theme_changed)
+        right_box.addWidget(self.combo_theme)
+
+        badge = QLabel("TÜBİTAK 2209-A")
+        badge.setStyleSheet("""
+            background-color: #1E293B;
+            border: 1px solid #334155;
+            color: #38BDF8;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        """)
+        right_box.addWidget(badge)
+
+        layout.addLayout(right_box)
+        return navbar
 
     def on_theme_changed(self, theme_name: str):
-        """Kullanıcı tema seçtiğinde tüm uygulamayı anında güncelle."""
         qss = get_theme_qss(theme_name)
         app = QApplication.instance()
         if app:
@@ -181,7 +214,7 @@ class MainWindow(QMainWindow):
 
     def _on_mode_changed(self, idx: int):
         is_udp = (idx == 0)
-        self.lbl_port.setText("UDP Port:" if is_udp else "Seri Port:")
+        self.lbl_port.setText("Port:" if is_udp else "Seri:")
         self.spin_port.setVisible(is_udp)
         self.edit_serial.setVisible(not is_udp)
 
