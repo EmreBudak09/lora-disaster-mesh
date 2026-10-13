@@ -380,6 +380,7 @@ class MainWindow(QMainWindow):
 
     def on_packet_received(self, pkt: TelemetryPacket, source_desc: str):
         updated_node = self.node_manager.update_with_packet(pkt)
+        self.topology_widget.on_packet_arrived(pkt.hop_count)
 
         if pkt.node_id == 1:
             self.seismic_widget.update_angles(pkt.pitch, pkt.roll)
